@@ -105,12 +105,12 @@ public class DocumentVectorAnnotator extends JCasAnnotator_ImplBase {
 			tokenList.add(name);
 			name.addToIndexes();
 			
-			System.out.println(temp+" "+count);
+			//System.out.println(temp+" "+count);
 
 		}
 		FSList fsTokenList = Utils.fromCollectionToFSList(jcas, tokenList);
 		doc.setTokenList(fsTokenList);
-		// System.out.println(docText);
+		//System.out.println(docText);
 
 	}
 
