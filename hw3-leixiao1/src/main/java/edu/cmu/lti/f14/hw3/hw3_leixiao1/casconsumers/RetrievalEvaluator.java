@@ -1,6 +1,5 @@
 package edu.cmu.lti.f14.hw3.hw3_leixiao1.casconsumers;
 
-
 import java.io.FileWriter;
 import java.io.IOException;
 import java.text.NumberFormat;
@@ -66,11 +65,18 @@ public class RetrievalEvaluator extends CasConsumer_ImplBase {
 	/** record the sentence text **/
 	public ArrayList<String> sentenceList;
 
+	/** record the rank of each document sentence with the format <senId,score> **/
+	public ArrayList<Double> newrank;
+
 	/**
 	 * record the highest score for each query and its sentenceID with the
 	 * format <senId,score>
 	 **/
 	public Map<Integer, Double> scoreList;
+
+	public ArrayList<Map> df;
+
+	public Map<Integer, Integer> newscoremap;
 
 	public int sen = 0;
 
@@ -83,6 +89,8 @@ public class RetrievalEvaluator extends CasConsumer_ImplBase {
 		senList = new ArrayList<Integer>();
 
 		al = new ArrayList<Map>();
+
+		df = new ArrayList<Map>();
 
 		score = new ArrayList<Double>();
 
@@ -99,6 +107,9 @@ public class RetrievalEvaluator extends CasConsumer_ImplBase {
 		sentenceList = new ArrayList<String>();
 
 		scoreList = new HashMap<Integer, Double>();
+
+		newscoremap = new HashMap<Integer, Integer>();
+		newrank = new ArrayList<Double>();
 
 	}
 
@@ -124,7 +135,7 @@ public class RetrievalEvaluator extends CasConsumer_ImplBase {
 			// Map<String,Integer> map = new HashMap<String,Integer>();
 			al.add(new HashMap<String, Integer>());
 
-			System.out.println("sen" + sen);
+			// System.out.println("sen" + sen);
 			Document doc = (Document) it.next();
 
 			// Make sure that your previous annotators have populated this in
@@ -167,156 +178,102 @@ public class RetrievalEvaluator extends CasConsumer_ImplBase {
 	public void collectionProcessComplete(ProcessTrace arg0) throws ResourceProcessException, IOException {
 
 		super.collectionProcessComplete(arg0);
-		
-		/**initialize rankList**/
-		int i;
-		for(i=0;i<senList.size();i++){
-			rankList.put(i, 0);
-		}
 
 		// TODO :: compute the cosine similarity measure
-
+		int i = 0;
 		int id = qIdList.get(0);
 		int querynumber = 0;
-		//int i;
 
+		/** recognize the query and documents with the relevance value
+		 * if the rel=99, the sentence will be a query
+		 * and if the rel=1 or 0, the sentence will be doucument
+		 * */
+		
 		for (i = 0; i < relList.size(); i++) {
 			if (qIdList.get(i) == id) {
 				if (relList.get(i) == 99) {
-					System.out.println(i + " is query");
+					// System.out.println(i + " is query");
 					querynumber = i;
 					score.add(0.0);
-
 				} else {
-					System.out.println(i + " is document");
-					score.add(computeCosineSimilarity((HashMap<String, Integer>) al.get(querynumber),
-							(HashMap<String, Integer>) al.get(i)));
 
+					double sc = computeCosineSimilarity((HashMap<String, Integer>) al.get(querynumber),
+							(HashMap<String, Integer>) al.get(i));
+					score.add(sc);
+					newrank.add(sc);
+					// System.out.println("Sentence  " + i + " has " + sc +
+					// " score");
 				}
 			} else {
+
+				Collections.sort(newrank);
+				Collections.reverse(newrank);
+				
+				/**only check the rank of the sentence whose rel=1**/
+				
+				int s = 0;
+				int l = 0;
+				for (s = 0; s < newrank.size(); s++) {
+
+					if (relList.get(i - 1 - s) == 1) {
+						l = i - 1 - s;
+						break;
+					}
+				}
+				// System.out.println("Sentence  "+ (l) +" has rank:");
+				
+				/**if the rel=1, we will check the rank by sorting the newrank list**/
+				
+				for (int j = 0; j < newrank.size(); j++) {
+
+					// System.out.println();
+					if (score.get(l).equals(newrank.get(j))) {
+
+						newscoremap.put(l, j + 1);
+						// System.out.println("Sentence  " + (l) + " has rank:"
+						// + (j + 1));
+						break;
+					}
+
+				}
+				newrank.clear();
+
+				/****************/
+
 				id = qIdList.get(i);
 				i--;
 			}
 
 		}
 
-		// TODO :: compute the rank of retrieved sentences
-		/**
-		 * help store the rank for each document sentence, with the format of
-		 * <key:sentenceID i,value: Score>
-		 **/
-		Map<Integer, Double> rank = new HashMap<Integer, Double>();
+		Collections.sort(newrank);
+		Collections.reverse(newrank);
 
-		id = qIdList.get(0);
+		int s = 0;
+		int l = 0;
+		for (s = 0; s < newrank.size(); s++) {
 
-		for (i = 0; i < relList.size(); i++) {
+			if (relList.get(i - 1 - s) == 1) {
+				l = i - 1 - s;
+				break;
+			}
+		}
+		// System.out.println("Sentence  "+ (l) +" has rank:");
+		for (int j = 0; j < newrank.size(); j++) {
 
-			if (qIdList.get(i) == id) {
-				if (relList.get(i) == 99) {
-					System.out.println(i + " is query");
-					querynumber = i;
+			// System.out.println();
+			if (score.get(l).equals(newrank.get(j))) {
 
-					rankList.put(i, 0);
-
-				} else {
-					System.out.println(i + " is document");
-					rank.put(i, score.get(i));
-					System.out.println(i + " " + score.get(i));
-					r.add(score.get(i));
-				}
-
-			} else {
-				/** sort the rank by r **/
-				Collections.sort(r);
-				Collections.reverse(r);
-
-				for (int j = 0; j < r.size(); j++) {
-
-					System.out.println("&&&&&&&&&&&&&&&&");
-					// System.out.println(r.get(j));
-					/** get the score of the sentence **/
-					double d = r.get(j);
-
-					/** according to the score, to find the sentenceId **/
-
-					// int s = rank.get(d);
-					int s = 0;
-
-					Set<Integer> kset = rank.keySet();
-					for (int ks : kset) {
-						if (d == rank.get(ks)) {
-							System.out.println(ks);
-							s = ks;
-							break;
-						}
-					}
-
-					/*****/
-					rankList.put(s, j + 1);
-
-					System.out.println("sentence" + s + " rank: " + (j + 1));
-
-					if (j == 0) {
-						scoreList.put(s, d);
-						System.out.println("@@@@@@@@@@@@@@@@" + "sentence" + s + " highesscore: " + d);
-					}
-
-					if (relList.get(s) == 1) {
-						rankScore.add(j + 1);
-						System.out.println("rank i" + (j + 1));
-					}
-
-					/*
-					 * if(relList.get(s)==1){ rankScore.add(calculate);
-					 * System.out.println("rank i"+(calculate)); calculate=0; }
-					 */
-
-				}
-
-				rank.clear();
-				r.clear();
-				/** continue the later calculation **/
-				id = qIdList.get(i);
-				i--;
+				newscoremap.put(l, j + 1);
+				// System.out.println("Sentence  " + (l) + " has rank:" + (j +
+				// 1));
+				break;
 			}
 
 		}
-		/** sort the rank by r **/
-		Collections.sort(r);
-		Collections.reverse(r);
-		for (int j = 0; j < r.size(); j++) {
-			System.out.println("&&&&&&&&&&&&&&&&");
-			double d = r.get(j);
-			// int s = rank.get(d);
+		newrank.clear();
 
-			int s = 0;
-
-			Set<Integer> kset = rank.keySet();
-			for (int ks : kset) {
-				if (d == rank.get(ks)) {
-					System.out.println(ks);
-					s = ks;
-					break;
-				}
-			}
-
-			rankList.put(s, j + 1);
-			System.out.println("sentence" + s + " rank: " + (j + 1));
-			// System.out.println(r.get(j));
-			/***************************/
-			if (j == 0) {
-				scoreList.put(s, d);
-				System.out.println("@@@@@@@@@@@@@@@@" + "sentence" + s + " highesscore: " + d);
-			}
-
-			if (relList.get(s) == 1) {
-				rankScore.add(j + 1);
-				System.out.println("rank i" + (j + 1));
-			}
-
-		}
-		rank.clear();
-		r.clear();
+		/****************/
 
 		// TODO :: compute the metric:: mean reciprocal rank
 
@@ -331,42 +288,35 @@ public class RetrievalEvaluator extends CasConsumer_ImplBase {
 		NumberFormat nf = NumberFormat.getInstance();
 		nf.setMinimumFractionDigits(4);
 
-		//String oPath = (String) getUimaContext().getConfigParameterValue("outputDocument");
+		FileWriter writer = new FileWriter("report.txt");
 
-		FileWriter writer = new FileWriter("/Users/leixiao/git/hw3-leixiao1/hw3-leixiao1/src/main/resources/report.txt");
+		for (l = 0; l < senList.size(); l++) {
 
-		int l = 0;
+			double scores = score.get(l);
 
-		for (l=0;l<senList.size();l++) {
-		
-			double scores=score.get(l);
-			int ranks = rankList.get(l);
-			if(relList.get(l)==1){
-				System.out.println("senID="+l+"\t"+"cosine=" + nf.format(scores) + "\t" + "rank=" + ranks + "\t" + "qid="+qIdList.get(l)+"\t"+"rel="
-						+ relList.get(l) + "\t" + sentenceList.get(l));
-				String m = "cosine=" + nf.format(scores) + "\t" + "rank=" + ranks + "\t" + "qid="+qIdList.get(l)+"\t"+"rel=" + relList.get(l)
-						+ "\t" + sentenceList.get(l) + "\n";
+			int ranks = 0;
+			if (relList.get(l) == 1) {
+				ranks = newscoremap.get(l);
+				String m = "cosine=" + nf.format(scores) + "\t" + "rank=" + ranks + "\t" + "qid=" + qIdList.get(l)
+						+ "\t" + "rel=" + relList.get(l) + "\t" + sentenceList.get(l) + "\n";
 
 				writer.write(m);
-				
+
 			}
 		}
-		writer.write("MRR="+metric_mrr+"\n");
+
+		writer.write("MRR=" + metric_mrr + "\n");
 		writer.close();
 
 	}
 
 	/**
-	 *
+	 *@param queryVector
+	 *@param docVector
 	 * @return cosine_similarity
 	 */
 	private double computeCosineSimilarity(Map<String, Integer> queryVector, Map<String, Integer> docVector) {
 		double cosine_similarity = 0.0;
-
-		int querysize = queryVector.size();
-		int documentsize = docVector.size();
-		int k = 0;
-		int i = 0;
 
 		int vec = 0;
 
@@ -377,52 +327,39 @@ public class RetrievalEvaluator extends CasConsumer_ImplBase {
 		temp.putAll(queryVector);
 		temp.putAll(docVector);
 
+		/**combine the two map together to form a new map which contains the key in query or doc**/
 		for (Map.Entry<String, Integer> entry : temp.entrySet()) {
 			String a = entry.getKey();
-			int b = entry.getValue();
 
-			if (queryVector.containsKey(a)) {
-				k = queryVector.get(a);
-				s1.add(k);
-			} else {
-				s1.add(0);
+			/**if the key is both in query and document, we will calculate **/
+			if (queryVector.containsKey(a) && docVector.containsKey(a)) {
+				vec += queryVector.get(a) * docVector.get(a);
 			}
-			if (docVector.containsKey(a)) {
-				k = docVector.get(a);
-				s2.add(k);
-			} else {
-				s2.add(0);
-			}
-		}
-		// System.out.println("**************");
-		
-		double doc1=0.0;
-		double doc2=0.0;
-		
 
-		for (i = 0; i < s1.size(); i++) {
-			// System.out.println(i+" s1:" +s1.get(i)+" s2:" +s2.get(i));
-
-			vec += s1.get(i) * s2.get(i);
-			doc1+=Math.pow(s1.get(i), 2);
-			doc2+=Math.pow(s2.get(i), 2);
 		}
 
-		double sq1=Math.sqrt(doc1);
-		double sq2=Math.sqrt(doc2);
+		double doc1 = 0.0;
+		double doc2 = 0.0;
+
+		/**using the cosine similarity formula to calculate the score**/
 		
+		for (Map.Entry<String, Integer> entry : queryVector.entrySet()) {
+			doc1 += Math.pow(entry.getValue(), 2);
+		}
+		for (Map.Entry<String, Integer> entry : docVector.entrySet()) {
+			doc2 += Math.pow(entry.getValue(), 2);
+		}
+
+		double sq1 = Math.sqrt(doc1);
+		double sq2 = Math.sqrt(doc2);
+
 		cosine_similarity = (double) (vec) / (double) (sq1 * sq2);
 
-		System.out.println("**************" + cosine_similarity);
-
-		/** remove all the elements of s1 and s2 **/
-		s1.clear();
-		s2.clear();
 		return cosine_similarity;
 	}
 
 	/**
-	 *
+	 * @param newscoremap
 	 * @return mrr
 	 */
 	private double compute_mrr() {
@@ -430,21 +367,19 @@ public class RetrievalEvaluator extends CasConsumer_ImplBase {
 
 		// TODO :: compute Mean Reciprocal Rank (MRR) of the text collection
 
-		int num = rankScore.size();
+		int num = newscoremap.size();
 		double ranksum = 0.0;
-		for (Integer str : rankScore) {
-			System.out.println(str);
-			ranksum += (double) 1 / (double) str;
-		}
-		metric_mrr = (double) ranksum / (double) num;
 
-		/*************/
-		for (Map.Entry<Integer, Integer> entry : rankList.entrySet()) {
+		/**using the formula of MRR to calculate the score**/
+		
+		for (Map.Entry<Integer, Integer> entry : newscoremap.entrySet()) {
 			int a = entry.getKey();
 			int b = entry.getValue();
-			System.out.println("sentence " + a + " " + "rank:" + b);
+			// System.out.println("sentence " + a + " " + "rank:" + b);
+			ranksum += (double) 1 / (double) b;
 
 		}
+		metric_mrr = (double) ranksum / (double) num;
 
 		return metric_mrr;
 	}

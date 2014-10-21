@@ -3,7 +3,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>edu.cmu.lti.11791.f14.hw3</groupId>
 	<artifactId>hw3-leixiao1</artifactId>
-	<version>0.0.1-SNAPSHOT</version>
+	<version>0.0.1</version>
 
 	<repositories>
 		<repository>
@@ -110,4 +110,8 @@
 			</plugin>
 		</plugins>
 	</build>
+	<scm>
+		<connection>scm:git:git@github.com:leixiao1992/hw3-leixiao1.git</connection>
+		<developerConnection>scm:git:git@github.com:leixiao1992/hw3-leixiao1.git</developerConnection>
+	</scm>
 </project>
